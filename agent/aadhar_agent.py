@@ -1,9 +1,12 @@
+# THE SUGGEST NEXT STEP IS HANDLED IN SUCH A WAY EITHER BOTH PAN AND FORM60 
+# are there in `remaining_docs` or both are not
+
 import datetime
 from typing import Tuple, Literal, Set
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import InMemorySaver # Use a persistent checkpointer in production
-from langgraph.types import Command
+from langgraph.types import Command, Interrupt
 
 # Assuming these are in the correct paths
 from agent.base_agent import BaseSpecialistAgent
@@ -23,8 +26,9 @@ class AadharAgent(BaseSpecialistAgent):
 
         # --- Node Definitions ---
         builder.add_node("prompt_for_aadhaar", self._prompt_for_aadhaar)
+        builder.add_node("prompt_for_otp", self._prompt_for_otp)
         builder.add_node("validate_and_verify", self._validate_and_verify)
-        builder.add_node("handle_invalid_format", self._handle_invalid_format)
+        builder.add_node("handle_invalid_format_aa_no", self._handle_invalid_format_aa_no)
         builder.add_node("prompt_for_confirmation", self._prompt_for_confirmation)
         builder.add_node("finish_aadhaar_process", self._finish_aadhaar_process)
         builder.add_node("terminate_workflow", self._terminate_workflow)
@@ -37,14 +41,19 @@ class AadharAgent(BaseSpecialistAgent):
         # After prompting, the graph will pause. On resume, it will validate.
         builder.add_edge("prompt_for_aadhaar", "validate_and_verify")
 
+        """builder.add_conditional_edges(
+            "prompt_for_otp",
+            self._handle_invalid_otp_format
+        )"""
+
         builder.add_conditional_edges(
             "validate_and_verify",
             lambda s: s.get("decision"),
-            {"proceed": "prompt_for_confirmation", "retry": "handle_invalid_format"}
+            {"proceed": "prompt_for_confirmation", "retry": "handle_invalid_format_aa_no"}
         )
         
         builder.add_conditional_edges(
-            "handle_invalid_format",
+            "handle_invalid_format_aa_no",
             lambda s: s.get("decision"),
             {"retry": "prompt_for_aadhaar", "terminate": "terminate_workflow"}
         )
@@ -67,7 +76,68 @@ class AadharAgent(BaseSpecialistAgent):
             interrupt_after=["prompt_for_aadhaar", "prompt_for_confirmation"]
         )
 
-    async def handle_step(self, state: OverallState, user_message: str) -> Tuple[OverallState, str]:
+    async def handle_step(self, state, user_message):
+        config = {"configurable": {"thread_id": state["session_id"]}}
+        checkpoint = self.graph.get_state(config)
+        final_graph_state = None
+
+        if checkpoint and checkpoint.next:
+            try:
+                if user_message:
+                    await self.graph.aupdate_state(config=config, values={"user_message":user_message})
+                    final_graph_state = await self.graph.ainvoke(Command(resume=user_message), config=config)
+                else:
+                    final_graph_state = await self.graph.ainvoke(None, config=config)
+            except Interrupt:
+                checkpoint = self.graph.get_state(config)
+                final_graph_state = checkpoint.values
+        else:
+            graph_input = {
+                "session_id": state["session_id"],
+                "user_message": user_message,
+                "retries": state.get("aadhar_retries", 0),
+                "verified_data": state.get("verified_data",{}),
+                "last_executed_node": state.get("last_executed_node","")
+            }
+
+            try:
+                final_graph_state = await self.graph.ainvoke(graph_input, config=config)
+            except Interrupt:
+                checkpoint = self.graph.get_state(config)
+                final_graph_state = checkpoint.values
+            
+        state["verified_data"] = final_graph_state.get("verified_data", {})
+        state["aadhar_retries"] = final_graph_state.get("retries", 0)
+        last_node = final_graph_state.get("last_executed_node")
+
+        if last_node == "prompt_for_aadhaar":
+            state["kyc_step"] = "awaiting_aadhaar_input"
+
+        elif last_node == "prompt_for_confirmation":
+            state["kyc_step"] = "awaiting_aadhaar_confirmation"
+
+        elif last_node == "finish_aadhaar_process":
+            state["kyc_step"] = None
+            state["active_workflow"] = None
+            
+            verified_data = final_graph_state["verified_data"]
+
+            state["aadhar_details"] = AadharDetailsState(
+                aadhar_number=verified_data["aadhar_number"],
+                name=verified_data["name"],
+                date_of_birth=verified_data["date_of_birth"],
+                new_doc_needed=False
+            )
+            state["aadhar_verification_status"] = VerificationState(
+                verification_status="success",
+                verification_message="Aadhaar details successfully verified from database.",
+                verification_timestamp=datetime.datetime.now().isoformat(),
+                verification_doc="Aadhaar e-Verification"
+            )
+        
+        return state, final_graph_state.get("response_to_user", "An error occurred.")
+
+    async def _handle_step(self, state: OverallState, user_message: str) -> Tuple[OverallState, str]:
         graph_input: AadharGraphState = {
             "session_id": state["session_id"],
             "user_message": user_message,
@@ -89,7 +159,7 @@ class AadharAgent(BaseSpecialistAgent):
         state["aadhaar_retries"] = final_graph_state["retries"]
         
         checkpoint = list(self.graph.get_state(config))
-        last_node = checkpoint[-2].next[0]
+        last_node = final_graph_state.get("last_executed_node")
         
         # Check if the graph is paused waiting for input.
         if checkpoint and checkpoint.next:
@@ -132,12 +202,24 @@ class AadharAgent(BaseSpecialistAgent):
         )
         
         message = retry_prompt if state.get("retries", 0) > 0 else base_prompt
-        # The LLM call could be used here to stylize the message, as in your original code.
-        # For example: self.llm_client._get_normal_response(message, sys_prompt=SYSTEM_PROMPT)
-        
         return {
             "response_to_user": message,
             "last_executed_node": "prompt_for_aadhaar"
+        }
+    
+    def _prompt_for_otp(self, state: AadharGraphState) -> AadharGraphState:
+        base_prompt = (
+            "Please enter the 6-digit OTP sent to your registered mobile number."
+        )
+        retry_prompt = (
+            "It seems that OTP was found invalid. "
+            "Please carefully re-enter your 6-digit OTP."
+        )
+
+        message = retry_prompt if state.get("otp_retries", 0) > 0 else base_prompt
+        return {
+            "response_to_user": message,
+            "last_executed_node": "prompt_for_otp"
         }
 
     def _validate_and_verify(self, state: AadharGraphState) -> AadharGraphState:
@@ -151,9 +233,21 @@ class AadharAgent(BaseSpecialistAgent):
         else:
             return {"decision": "retry"}
 
-    def _handle_invalid_format(self, state: AadharGraphState) -> AadharGraphState:
+    def _handle_invalid_format_aa_no(self, state: AadharGraphState) -> AadharGraphState:
         retries = state.get("retries", 0) + 1
-        return {"retries": retries, "decision": "terminate" if retries >= 2 else "retry"}
+        return {
+            "retries": retries, 
+            "decision": "terminate" if retries >= 2 else "retry", 
+            "last_executed_node":"handle_invalid_format_aa_no"
+        }
+    
+    """def _handle_invalid_otp_format(self, state: AadharGraphState) -> AadharGraphState:
+        retries = state.get("otp_retries", 0) + 1
+        return {
+            "otp_retries": retries, 
+            "decision": "terminate" if retries >= 2 else "retry", 
+            "last_executed_node":"handle_invalid_otp_format"
+        }"""
 
     def _prompt_for_confirmation(self, state: AadharGraphState) -> AadharGraphState:
         verified_data = state["verified_data"]
@@ -179,7 +273,10 @@ class AadharAgent(BaseSpecialistAgent):
             "we cannot proceed with the automated process. We advise you to get your Aadhaar details corrected. "
             "For now, we will have to terminate this verification."
         )
-        return {"response_to_user": message}
+        return {
+            "response_to_user": message, 
+            "last_executed_node": "handle_data_mismatch"
+        }
 
     def _finish_aadhaar_process(self, state: AadharGraphState) -> AadharGraphState:
         message = "Thank you. Your Aadhaar details have been successfully confirmed."
@@ -187,12 +284,16 @@ class AadharAgent(BaseSpecialistAgent):
         return {
             "response_to_user": message + " " + next_steps_suggestion,
             "verified_data": state["verified_data"], # Pass data through
-            "status": "SUCCESS"
+            "status": "SUCCESS",
+            "last_executed_node": "finish_aadhaar_process"
         }
 
     def _terminate_workflow(self, state: AadharGraphState) -> AadharGraphState:
         message = "I'm sorry, we couldn't verify your Aadhaar details after multiple attempts. Please contact support for assistance."
-        return {"response_to_user": message}
+        return {
+            "response_to_user": message,
+            "last_executed_node": "terminate_workflow"
+        }
 
     def _suggest_next_steps(self, state: OverallState) -> str:
         completed: Set[str] = set(state.get("completed_workflows", []))
@@ -200,8 +301,10 @@ class AadharAgent(BaseSpecialistAgent):
         if "aadhaar" not in completed:
              completed.add("aadhaar")
         remaining_docs = self.all_workflows - completed
+
+        if "pan" in remaining_docs:
+            return f"Would you like to proceed with your PAN verification now?"
+            
         if not remaining_docs:
             return "You have now completed all required document verifications!"
-        else:
-            next_doc = list(remaining_docs)[0].capitalize()
-            return f"Would you like to proceed with your {next_doc} verification now?"
+        

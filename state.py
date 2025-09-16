@@ -33,6 +33,7 @@ class OverallState(TypedDict):
     active_workflow: Optional[str] = Field(description="Name of the document workflow currently in progress, e.g., 'aadhaar' or 'pan'")
     completed_workflows: List[str] = Field(description="A list of document workflows that have been successfully completed.")
     kyc_step: Optional[str] = Field(description="The current step within the active_workflow.")
+    
     input_message: str = Field(description="The response from the user")
     ai_response: str = Field(description="The response from the LLM")
     human_response: str = Field(description="The response from the User for available document")
@@ -64,6 +65,7 @@ class PanGraphState(TypedDict):
     
     # The final output to be sent to the user
     response_to_user: str
+    last_executed_node: str
 
 
 class AadharGraphState(TypedDict):
@@ -78,3 +80,4 @@ class AadharGraphState(TypedDict):
     
     # The final output to be sent to the user
     response_to_user: str
+    last_executed_node: str

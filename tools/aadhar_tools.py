@@ -32,10 +32,12 @@ class VerificationResult(BaseModel):
 def validate_aadhaar_format(aadhaar_number: str) -> bool:
     print(f"--- TOOL: Validating Aadhaar format for '{aadhaar_number}' ---")
     aadhar_no_pattern = r"[0-9]{12}"
-    aadhaar_number = re.search(aadhar_no_pattern, aadhaar_number).group(0)
-    
-    if aadhaar_number:
+    match = re.search(aadhar_no_pattern, aadhaar_number)
+
+    if match:
+        aadhaar_number = match.group(0)
         return True
+    
     return False
 
 # -----------------------------------------------------------------------------
@@ -45,9 +47,9 @@ def validate_aadhaar_format(aadhaar_number: str) -> bool:
 def validate_otp_format(otp: str) -> bool:
     print(f"--- TOOL: Validating OTP format for '{otp}' ---")
     otp_pattern = r'[0-9]{6}'
-    otp = re.search(otp_pattern, otp).group(0)
-    
-    if otp:
+    match = re.search(otp_pattern, otp)
+
+    if match:
         return True
     return False
 # -----------------------------------------------------------------------------
