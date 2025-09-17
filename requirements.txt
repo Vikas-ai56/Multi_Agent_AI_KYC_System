@@ -1,0 +1,9 @@
+openai
+langgraph
+langsmith
+pydantic
+pydantic-settings
+uvicorn
+pandas
+python-dotenv
+requests
