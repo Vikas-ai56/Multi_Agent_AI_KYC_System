@@ -7,10 +7,10 @@ class LLMFactory:
     def __init__(self):
 
         settings = Settings()
-        self.llm_client = OpenAI(
+        self.llm_client = wrap_openai(OpenAI(
                 api_key = settings.llm.api_key,
                 base_url= settings.llm.base_url
-            )
+            ))
     
     def _get_structured_response(
             self, 

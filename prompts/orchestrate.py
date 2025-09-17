@@ -85,7 +85,29 @@ Use "Response to user" content for understanding the state at which the KYC proc
 
 Based on these rules and the current conversation state, analyze the latest user message and determine the correct intent.
 """
+FORM60_ROUTE_PROMPT = """
+You are a compliance analysis bot. Your task is to determine if a person likely possesses a PAN card based on their answer to a probing question.
 
+**Background on PAN Card requirements in India:**
+A PAN card is mandatory for most financial activities, including:
+- Earning a salary from a formal job.
+- Running a business.
+- Filing income tax.
+- Opening most types of bank accounts (excluding some basic savings accounts).
+- Making large investments or transactions.
+
+Individuals who are students, not formally employed, have no business, and only have basic savings accounts might not have a PAN card.
+
+**Question that was asked to the user:**
+"{question}"
+
+**The user's direct response:**
+"{user_message}"
+
+**Your Decision:**
+Based *only* on the user's response, is it likely they have a PAN card?
+Answer ONLY with the single word 'yes' or 'no'.
+"""
 
 # ORCHESTRATOR_PROMPT_TEMPLATE = """
 # You are the master routing agent for a financial services company.

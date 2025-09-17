@@ -1,4 +1,4 @@
-from typing_extensions import TypedDict, Optional, List, Dict
+from typing_extensions import TypedDict, Optional, List, Dict, Literal
 from pydantic import BaseModel, Field
 
 
@@ -29,43 +29,46 @@ class Form60DetailsState(TypedDict):
     agricultural_income: int = Field(description="Ask the user for his income with agricultural as source", default=0)
     other_income: int = Field(description="Ask if the user has any other source of income", default=0)
 
+class Form60Data(TypedDict, total=False):
+    agricultural_income: int
+    other_income: int
 class OverallState(TypedDict):
-    active_workflow: Optional[str] = Field(description="Name of the document workflow currently in progress, e.g., 'aadhaar' or 'pan'")
-    completed_workflows: List[str] = Field(description="A list of document workflows that have been successfully completed.")
-    kyc_step: Optional[str] = Field(description="The current step within the active_workflow.")
-    
-    input_message: str = Field(description="The response from the user")
-    ai_response: str = Field(description="The response from the LLM")
-    human_response: str = Field(description="The response from the User for available document")
-    OTP_verified: bool = Field(default=False)
-    expired: bool = Field(default= False)
-    match: bool = Field(default=False)
-    no_pan: bool = Field(default=True)
-    Form_60: Form60DetailsState = Field(description="Stores form60 details")
-    pan_details: PANDetailsState = Field(description="The PAN card details of the user")
-    pan_verification_status: VerificationState = Field(description="Status of PAN verification: success, failed, or error")
-    aadhar_details: AadharDetailsState = Field(description="The Aadhar card details of the user")
-    aadhar_verification_status: VerificationState = Field(description="Status of AADHAR verification: success, failed, or error")
-    voterId_details: VoterIdDetailsState = Field(description="The Voter ID card details of the user")
-    user_message: str = Field(description="The response from the user")
+    session_id: str
+    active_workflow: Optional[str]
+    completed_workflows: List[str]
+    kyc_step: Optional[str] # e.g., 'awaiting_pan_input', 'awaiting_confirmation'
 
+    # --- High-Level Control Flags ---
+    pan_probe_complete: bool
+
+    # --- Logging & Context ---
+    last_user_message: str
+    last_agent_response: str
+    
+    # --- Data Payloads from Specialist Agents ---
+    aadhar_details: AadharDetailsState
+    pan_details: PANDetailsState
+    Form_60: Form60Data
+    # voterId_details: VoterIdDetailsState # For future use
+
+    # --- Verification Status Payloads ---
+    aadhar_verification_status: VerificationState
+    pan_verification_status: VerificationState
 
 class PanGraphState(TypedDict):
     """The state object that is passed between nodes in the PAN workflow graph."""
-    # Input from the main orchestrator
     session_id: str
     user_message: str
+    aadhaar_details: Optional[dict]
     
-    # Data from the OverallState
-    aadhaar_details: Optional[AadharDetailsState]
-    
-    # Internal state for the PAN workflow
-    pan_details: PANDetailsState
+    # Internal State
+    pan_details: dict
     retries: int
-    
-    # The final output to be sent to the user
-    response_to_user: str
+    decision: Optional[str]
+
     last_executed_node: str
+    response_to_user: str
+    status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]
 
 
 class AadharGraphState(TypedDict):
@@ -73,11 +76,30 @@ class AadharGraphState(TypedDict):
     # Input from the main orchestrator
     session_id: str
     user_message: str
+    decision: Optional[str]
     
     # Internal state for the Aadhaar workflow
     retries: int
+    otp_retries: int
+    aadhaar_no: str
     verified_data: Optional[Dict] # Temporarily hold data before committing to OverallState
     
     # The final output to be sent to the user
     response_to_user: str
     last_executed_node: str
+    status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]
+class Form60GraphState(TypedDict):
+    """The state object for the Form60 workflow graph."""
+    session_id: str
+    user_message: str
+    retries: int
+    
+    # Internal State
+    form60_data: Form60Data
+    current_question: Literal["agri", "other"]
+
+    # Execution Tracking
+    last_executed_node: str
+    response_to_user: str
+    status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]
+    decision: Optional[str]

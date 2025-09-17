@@ -8,15 +8,25 @@ from pydantic import BaseModel, Field
 class UserIntent(str, Enum):
     START_AADHAAR_VERIFICATION = "User wants to start the Aadhaar verification process."
     START_PAN_VERIFICATION = "User wants to start the PAN card verification process."
-    START_FORM60_VERIFICATION = "User wants to start the Form60 verification process."
+    
     CONTINUE_ACTIVE_WORKFLOW = "User is providing information for a currently active workflow."
+    
     ASK_GENERAL_QUESTION = "User is asking a general question about insurance, not related to the KYC process."
+    
     PROVIDE_CONFIRMATION_YES = "User is confirming 'Yes' to a question from an agent."
     PROVIDE_CONFIRMATION_NO = "User is confirming 'No' to a question from an agent."
+    
     FORCE_START_NEW_DOC_VERIFICATION = "User is trying to start another workflow (different doc verification) without completing the current workflow (verification of current doc)"
+    
     UNKNOWN = "The user's intent is unclear or irrelevant to the KYC or insurance process."
+    
     POST_KYC_ACKNOWLEDGEMENT = "User is giving a simple acknowledgement (e.g., 'ok', 'thanks') after all KYC workflows have been completed."
     WORKFLOW_ALREADY_COMPLETE = "User is trying to start a specific workflow that has already been successfully completed."
+
+    DECLARE_NO_PAN = "User is declaring they do not have a PAN card."
+    START_FORM60_VERIFICATION = "User wants to start the Form60 verification process."
+    SUGGEST_PAN_WORKFLOW_INSTEAD = "System should suggest the PAN workflow based on user's context."
+    PROCEED_WITH_FORM60 = "User insists on Form60 after being prompted about PAN."
 
 class OrchestratorDecision(BaseModel):
     """

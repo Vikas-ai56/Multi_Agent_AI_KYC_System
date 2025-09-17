@@ -22,18 +22,18 @@ def get_nsdl_database():
 def validate_pan_format(pan_number: str) -> bool:
     """Checks if the provided string is a valid 10-character PAN format."""
     match = re.search(r"[A-Z]{5}[0-9]{4}[A-Z]{1}", pan_number.strip().upper())
-    pan_number = match.group(0)
     
     if pan_number is not None:
+        pan_number = match.group(0)
         return True
     return False
 
 def validate_dob_format(dob: str) -> bool:
     """Checks if the provided string is a valid DD/MM/YYYY format."""
     match = re.search(r"[0-9]{2}/[0-9]{2}/[0-9]{4}", dob.strip())
-    dob = match.group(0)
     
     if dob is not None:
+        dob = match.group(0)
         return True
     return False
 

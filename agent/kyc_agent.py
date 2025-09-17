@@ -2,6 +2,7 @@ from typing import Tuple
 from state import OverallState
 from agent.aadhar_agent import AadharAgent
 from agent.pan_agent import PanAgent
+from agent.form60_agent import Form60Agent
 # from agents.specialists.form60_agent import Form60Agent
 
 class KYCManagerAgent:
@@ -13,7 +14,7 @@ class KYCManagerAgent:
         self.specialists = {
             "aadhaar": AadharAgent(),
             "pan": PanAgent(),
-            # "form60": Form60Agent(),
+            "form60": Form60Agent()
         }
         self.fallback_message = (
             "I'm sorry, there seems to be a system error and I can't determine which "
