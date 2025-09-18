@@ -11,6 +11,7 @@ from langgraph.types import Interrupt, Command
 from pydantic import BaseModel, Field
 from typing_extensions import Optional
 from langsmith import traceable
+from pathlib import Path
 
 # Assuming correct import paths
 from agent.base_agent import BaseSpecialistAgent
@@ -18,6 +19,8 @@ from tools import pan_tools
 from state import OverallState, PanGraphState
 from llm import LLMFactory
 from tools.ocr_tool import OCR
+from tools.ocr_pan_tool import PanProcessor
+from api.ocr_api import DocumentIntelligenceService
 
 class ParsedPANDetailsState(BaseModel):
     pan_card_number: str = Field(description="The PAN card number of the user")
@@ -29,6 +32,11 @@ class PanAgent(BaseSpecialistAgent):
         self.all_workflows: Set[str] = {"aadhaar", "pan", "form60"}
         self.llm_client = LLMFactory()
         self.ocr = OCR()
+
+        self.ocr_real = DocumentIntelligenceService()
+        self.pan_ocr_processor = PanProcessor()
+
+        self.source = Path(r"D:\test_pan.jpg")
 
         builder = StateGraph(PanGraphState)
         
@@ -308,12 +316,33 @@ The user will provide this information in various formats. Extract the actual va
         
         return {"decision": decision, "last_executed_node": "verify_with_nsdl"}
     
+    # For now the image analysis is fixed to only one image
     @traceable
-    def _pan_ocr_extract(self, state: PanGraphState) -> PanGraphState:
+    async def _pan_ocr_extract(self, state: PanGraphState) -> PanGraphState:
         if self.nsdl_verification_count < 3:
-            state = self.ocr.pan_ocr(state)
-            # if not state["pan_details"]:
-            return {"last_executed_node":"pan_ocr_extract", "decision":"retry"}
+            print("Upload Image for OCR")
+
+            content = await self.ocr_real.analyze(
+                source=self.source,
+                is_url=False,
+                model_id="prebuilt-read"
+            )
+
+            if content.get("status") == "succeeded":
+                print("Extracting content")
+                
+                ar = content.get("analyzeResult", {})
+                content = ar.get("content")
+
+                details = self.pan_ocr_processor.extract_pan_details(ocr_text=content)
+                                
+                state["pan_details"]["pan_card_number"] = details["permanent_account_number"]
+                state["pan_details"]["date_of_birth"] = details["date_of_birth"]
+                state["pan_details"]["pan_card_holders_name"] = details["name"]
+
+                return {"last_executed_node":"pan_ocr_extract", "decision":"retry"}
+            else:
+                {"last_executed_node":"pan_ocr_extract", "decision":"terminate"}
         else:
             return {"last_executed_node":"pan_ocr_extract", "decision":"terminate"}
        

@@ -6,27 +6,38 @@ from typing_extensions import cast
 
 import traceback
 
+from memory.memory import MemoryManager
+
+GRRETING_PROMPT = (
+    "Namaste I am RIA an insurance agent working for tata AIA\n"
+    "I am here to help you complete your KYC verification process\n"
+    "To kickstart this process I like to know which document is readily available with you now.\n"
+    "PAN or AADHAAR?"
+)
+
 async def main():
     """
     Initializes the agent system and runs a command-line interface for interaction.
     """
     print("--- TATA AIA Conversational Agent ---")
     print("Type 'exit' or 'quit' to end the conversation.")
+    print("\n", "RIA: ",GRRETING_PROMPT)
     print("-" * 35)
 
-    # 1. Initialize the Main Orchestrator
-    orchestrator = MainOrchestrator()
-
-    # 2. Create an initial state for the user's session.
+    # 1. Create an initial state for the user's session.
     # In a real app, you would load this from a database using a session_id.
     session_id = f"cli-session-{uuid.uuid4()}"
+
+    memory_client = MemoryManager(session_id)
+    # 2. Initialize the Main Orchestrator
+    orchestrator = MainOrchestrator(memory_client)
     
     # This dictionary MUST contain all the keys defined in your OverallState TypedDict.
     # We use `cast` to inform the type checker that this dictionary adheres to the TypedDict structure.
     state: OverallState = cast(OverallState, {
         "session_id": session_id,
         "input_message": "",
-        "ai_response": "",
+        "ai_response": GRRETING_PROMPT,
         "active_workflow": None,
         "kyc_step": None,
         "completed_workflows": [],

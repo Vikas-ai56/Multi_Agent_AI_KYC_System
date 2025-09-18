@@ -7,3 +7,8 @@ uvicorn
 pandas
 python-dotenv
 requests
+aiofiles
+mem0ai
+redis
+aiohttp
+Pillow

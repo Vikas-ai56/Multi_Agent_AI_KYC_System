@@ -9,28 +9,45 @@ from state import OverallState
 from models.intent import OrchestratorDecision, UserIntent
 from llm import LLMFactory 
 from prompts.orchestrate import ORCHESTRATOR_PROMPT_TEMPLATE, FORM60_ROUTE_PROMPT
+from memory.memory import MemoryManager
 
 class MainOrchestrator:
     """
     The central routing agent for the entire system.
     It determines the user's high-level intent and delegates tasks to the appropriate manager agents.
     """
-    def __init__(self):
+    def __init__(
+        self,
+        memory_client: MemoryManager
+        ):
+
         self.llm_client = LLMFactory()
         self.kyc_manager = KYCManagerAgent()
         self.general_query_agent = GeneralQueryAgent()
-        self.fallback_message = "I'm sorry, I didn't quite understand that. Could you please rephrase?"
-
+        self.fallback_message = (
+            "I'm sorry, I didn't quite understand that. Could you please rephrase?"
+            "Shall we continue the current process"
+        )
+        self.memory_manager = memory_client
+        
     async def _get_intent(self, state: OverallState, user_message: str) -> OrchestratorDecision:
         """
         Uses a powerful, context-aware prompt with structured output (Pydantic)
         to reliably determine the user's intent.
         """      
+        # memory_context = self.memory_manager.get_memory_context(user_message)
+        memory_context = self.memory_manager.get_memory_context(
+            query=user_message
+        )
+        
+        # print("*"*25,"\n", memory_context,"\n","*"*25)
+
         prompt = ORCHESTRATOR_PROMPT_TEMPLATE.format(
             active_workflow=state.get("active_workflow") or "None",
             kyc_step=state.get("kyc_step") or "None",
             response_to_user=state.get("ai_response", "None"),
-            completed_workflows=state.get("completed_workflows", [])
+            completed_workflows=state.get("completed_workflows", []),
+            memory_context = memory_context
         )
         
         try:
@@ -45,7 +62,6 @@ class MainOrchestrator:
             return OrchestratorDecision(intent=UserIntent.UNKNOWN, user_provides_data=False)
 
     async def _start_workflow(self, workflow_name: Literal["aadhaar", "pan", "form60"], state: OverallState, user_message: str) -> Tuple[OverallState, str]:
-        
         state['active_workflow'] = workflow_name
         message_for_agent = "" if state.get("kyc_step") is None else user_message
         
@@ -67,24 +83,14 @@ class MainOrchestrator:
         # print("\n", "*"*35, "\n", decision.intent, "\n", "*"*35,)
 
         if current_kyc_step == "awaiting_pan_probe_response":
-            system_prompt = FORM60_ROUTE_PROMPT.format(question = state["ai_response"], user_message = user_message)
-            message = self.llm_client._get_normal_response(human_prompt=user_message, sys_prompt=system_prompt)
-            
-            if "yes" in message.lower():
-                state["kyc_step"] = "awaiting_final_pan_decision"
-                answer = "Based on that information, it's likely a PAN card would have been required. Verification is mandatory if you have one. Would you like to try the PAN verification process now (Yes/No)?"
-                state["ai_response"] = answer
-                return state, answer
-            else:
-                return await self._start_workflow("form60", state, user_message)
-
+            final_state, response_message = await self._handle_pan_probe_response(state, user_message)
+        
         if current_kyc_step == "awaiting_final_pan_decision":
-            return await self._start_workflow("pan" if "yes" in user_message.lower() else "form60", state, user_message)
-
-        all_required_workflows = {"aadhaar", "pan"} # Define all possible workflows
+            final_state, response_message = await self._start_workflow("pan" if "yes" in user_message.lower() else "form60", state, user_message)
+        
+        all_required_workflows = {"aadhaar", "pan"} 
         completed_workflows = set(state.get("completed_workflows", []))
-        # print(completed_workflows, "\n\n")
-
+        
 # --------------------------------------------------------------------------------------------------------------
 # This should be extended to other documents as well
 # --------------------------------------------------------------------------------------------------------------
@@ -99,43 +105,38 @@ class MainOrchestrator:
                 
                 else:
                     next_workflow = remaining_workflows.pop()
-                    answer = (f"We have already completed the {workflow_to_start} verification. "
+                    answer = (f"We have already completed the verification of this document.\n"
                               f"Would you like to proceed with the {next_workflow.upper()} verification now?")
                 
                 state['active_workflow'] = None
                 state["ai_response"] = answer
                 
-                return state, answer
+                final_state, response_message = state, answer
         
         match decision.intent:
             case UserIntent.START_AADHAAR_VERIFICATION:
                 state['active_workflow'] = 'aadhaar'
-                updated_state, answer = await self.kyc_manager.delegate_to_specialist(state, user_message)
-                updated_state["ai_response"] = answer
-                return updated_state, answer
+                final_state, response_message = await self.kyc_manager.delegate_to_specialist(state, user_message)
+                final_state["ai_response"] = response_message
                 
             case UserIntent.START_PAN_VERIFICATION:
                 state['active_workflow'] = 'pan'
-                updated_state, answer = await self.kyc_manager.delegate_to_specialist(state, user_message)
-                updated_state["ai_response"] = answer
-                return updated_state, answer
+                final_state, response_message = await self.kyc_manager.delegate_to_specialist(state, user_message)
+                final_state["ai_response"] = response_message
 
             case UserIntent.CONTINUE_ACTIVE_WORKFLOW:
-                # For any continuation, we simply delegate to the KYC manager,
-                # which will use the active_workflow already in the state.
                 if not state.get("active_workflow"):
                     return state, "I'm sorry, I'm not sure which process you want to continue. Could you clarify?"
                 
-                updated_state, answer = await self.kyc_manager.delegate_to_specialist(state, user_message)
-                updated_state["ai_response"] = answer
-                return updated_state, answer
+                final_state, response_message = await self.kyc_manager.delegate_to_specialist(state, user_message)
+                final_state["ai_response"] = response_message
             
             case UserIntent.PROVIDE_CONFIRMATION_NO:
                 # If no workflow is active, the user is declining the suggestion to start the next one.
                 if not state.get("active_workflow"):
                     answer = "Okay, no problem. Please let me know if you change your mind or if there's anything else I can help you with. Have a great day!"
                     updated_state["ai_response"] = answer
-                    return state, answer
+                    return updated_state, answer
 
                 # Otherwise, a workflow is active, and "no" is a response within that workflow.
                 updated_state, answer = await self.kyc_manager.delegate_to_specialist(state, user_message)
@@ -190,15 +191,44 @@ class MainOrchestrator:
                 if not state.get("pan_probe_complete"):
                     state["pan_probe_complete"] = True
                     state["kyc_step"] = "awaiting_pan_probe_response"
-                    probe_question = "I understand. To ensure we follow the correct procedure, could you please tell me if you have a bank account and what your current occupation is?"
-                    state["ai_response"] = probe_question
-                    return state, probe_question
+                    response_message = "I understand. To ensure we follow the correct procedure, could you please tell me if you have a bank account and what your current occupation is?"
+                    state["ai_response"] = response_message
+                    final_state = state
                 else:
                     return await self._start_workflow("form60", state, user_message)
 
             case _: # Handles UNKNOWN
-                return state, self.fallback_message
+                if state.get("active_workflow", 1234) == 1234:
+                    remaining_doc = list(all_required_workflows - completed_workflows)
+                    
+                    if remaining_doc:
+                        next_doc = remaining_doc[-1]
+                        fallback_message = ("I'm sorry, I didn't quite understand that. Could you please rephrase?"
+                                            f"Shall we start the verification of {next_doc}. If you have it available with you")
+                        response_message = fallback_message
+                        final_state = state
+                    
+                    else:
+                        next_doc = remaining_doc[-1]
+                        fallback_message = ("I'm sorry, I didn't quite understand that. Could you please rephrase?"
+                                            f"You have completed your KYC, You can press EXIT to end the process.")
+                        return state, fallback_message
+                    
+        self.memory_manager.add_turn(user_message, response_message, state["active_workflow"])
+        return final_state, response_message
     
+    async def _handle_pan_probe_response(self, state: OverallState, user_message: str) -> Tuple[OverallState, str]:
+        system_prompt = FORM60_ROUTE_PROMPT.format(question=state["ai_response"], user_message=user_message)
+        message = self.llm_client._get_normal_response(human_prompt=user_message, sys_prompt=system_prompt)
+        
+        if "yes" in message.lower():
+            state["kyc_step"] = "awaiting_final_pan_decision"
+            answer = "Based on that information, it's likely a PAN card would have been required. Verification is mandatory if you have one. Would you like to try the PAN verification process now (Yes/No)?"
+            state["ai_response"] = answer
+            return state, answer
+        else:
+            return await self._start_workflow("form60", state, user_message)
+        
     def _get_guidance_message(self, state: OverallState) -> str:
         """Generates a helpful message to guide the user back to a pending workflow."""
         kyc_step = state.get("kyc_step")
@@ -209,10 +239,3 @@ class MainOrchestrator:
         if state.get("active_workflow"):
             return f"Whenever you're ready, we can continue with the {state['active_workflow']} verification."
         return "Let me know how I can help you further!"
-    
-
-# if decision.intent in [UserIntent.START_AADHAAR_VERIFICATION, UserIntent.START_PAN_VERIFICATION]:
-        #     workflow_to_start = 'aadhaar' if decision.intent == UserIntent.START_AADHAAR_VERIFICATION else 'pan'
-        #     if workflow_to_start in state.get("completed_workflows", []):
-        #         decision.intent = UserIntent.WORKFLOW_ALREADY_COMPLETE
-

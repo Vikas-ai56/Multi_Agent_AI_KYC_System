@@ -110,7 +110,6 @@ class PanProcessor:
         pan_details = {
             "permanent_account_number": None,
             "name": None,
-            "father_name": None,
             "date_of_birth": None
         }
         
@@ -138,22 +137,22 @@ class PanProcessor:
                     pan_details["name"] = ' '.join(name_words[:3])
                 break
         
-        father_patterns = [
-            r'(?:पिता\s*का\s*नाम\s*/\s*Father\'?s?\s*Name|Father\'?s?\s*Name)\s+([A-Z\s]+?)(?:\s+(?:जन्म|Date|हस्ताक्षर)|$)',
-            r'Father\'?s?\s*Name\s+([A-Z\s]+?)(?:\s+(?:Date|Signature)|$)'
-        ]
+        # father_patterns = [
+        #     r'(?:पिता\s*का\s*नाम\s*/\s*Father\'?s?\s*Name|Father\'?s?\s*Name)\s+([A-Z\s]+?)(?:\s+(?:जन्म|Date|हस्ताक्षर)|$)',
+        #     r'Father\'?s?\s*Name\s+([A-Z\s]+?)(?:\s+(?:Date|Signature)|$)'
+        # ]
         
-        for pattern in father_patterns:
-            father_match = re.search(pattern, cleaned_text, re.IGNORECASE)
-            if father_match:
-                father_name = father_match.group(1).strip()
-                # Clean up father's name
-                father_words = father_name.split()
-                if len(father_words) <= 3:
-                    pan_details["father_name"] = father_name
-                else:
-                    pan_details["father_name"] = ' '.join(father_words[:3])
-                break
+        # for pattern in father_patterns:
+        #     father_match = re.search(pattern, cleaned_text, re.IGNORECASE)
+        #     if father_match:
+        #         father_name = father_match.group(1).strip()
+        #         # Clean up father's name
+        #         father_words = father_name.split()
+        #         if len(father_words) <= 3:
+        #             pan_details["father_name"] = father_name
+        #         else:
+        #             pan_details["father_name"] = ' '.join(father_words[:3])
+        #         break
         
         dob_patterns = [
             r'(?:जन्म\s*की\s*तारीख\s*/\s*Date\s*of\s*Birth|Date\s*of\s*Birth)\s+(\d{1,2}\/\d{1,2}\/\d{4})',

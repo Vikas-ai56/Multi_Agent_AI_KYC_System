@@ -165,6 +165,9 @@ class AadharAgent(BaseSpecialistAgent):
             if "aadhaar" not in state.get("completed_workflows", []):
                 state["completed_workflows"] = state.get("completed_workflows", []) + ["aadhaar"]
             
+            next_step = self._suggest_next_steps(state)
+            final_graph_state["response_to_user"] += "\n" + next_step
+            
             state["active_workflow"] = None
             state["kyc_step"] = None
 
@@ -183,8 +186,6 @@ class AadharAgent(BaseSpecialistAgent):
                     verification_timestamp=datetime.datetime.now().isoformat(),
                     verification_doc="Aadhaar e-Verification"
                 )
-                next_step = self._suggest_next_steps(state)
-                final_graph_state["response_to_user"] += "\n" + next_step
 
         return state, final_graph_state.get("response_to_user", "An error occurred.")
 

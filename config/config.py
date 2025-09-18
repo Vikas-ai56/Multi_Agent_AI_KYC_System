@@ -29,8 +29,17 @@ class ChromaDbSettings(BaseSettings):
     database: str = os.getenv("CHROMA_DATABASE")
     token: str = os.getenv("CHROMA_TOKEN")
 
+class Mem0Settings(BaseSettings):
+    api_key: str = os.getenv("MEM0_API_KEY")
+
+class RedisDbSettings(BaseSettings):
+    host: str = os.getenv("REDIS_HOST")
+    password: str = os.getenv("REDIS_PASSWORD")
+
 class Settings(BaseSettings):
     document_intelligence: DocumentIntelligenceSettings = DocumentIntelligenceSettings()
     llm: LLMSettings = LLMSettings()
     cohere: CohereSettings = CohereSettings()
     chromadb: ChromaDbSettings = ChromaDbSettings()
+    redisdb: RedisDbSettings = RedisDbSettings()
+    mem0: Mem0Settings = Mem0Settings()

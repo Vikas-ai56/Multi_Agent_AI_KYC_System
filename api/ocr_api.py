@@ -1,4 +1,4 @@
-import sys
+'''import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -104,4 +104,138 @@ if __name__ == "__main__":
 
     if results.get("status") == "succeeded":
         ar = results.get("analyzeResult", {})
-        print(ar.keys())
+        print(ar.get("content"))
+'''
+
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import logging
+import asyncio
+import aiohttp
+import aiofiles
+import base64
+from typing import Union, Dict
+from config.config import get_settings
+from pathlib import Path
+
+class DocumentIntelligenceService:
+    """
+    Asynchronous service for Azure Document Intelligence REST API.
+    Supports local image bytes upload or URL JSON.
+    """
+
+    def __init__(self):
+        settings = get_settings()
+        self.key = settings.document_intelligence.api_key
+        self.endpoint = settings.document_intelligence.endpoint
+        self.api_version = "2024-02-29-preview"  # Using a recent preview version for markdown support
+
+    async def analyze(
+        self,
+        source: Union[str, bytes, Path],
+        is_url: bool = False,
+        model_id: str = "prebuilt-read",
+    ) -> Dict:
+        """
+        Analyzes a document from a URL or local file asynchronously.
+        """
+        async with aiohttp.ClientSession() as session:
+            result_id = await self._submit_analysis(session, source, is_url, model_id)
+            return await self._get_analysis_results(session, result_id, model_id)
+
+    async def _submit_analysis(
+        self,
+        session: aiohttp.ClientSession,
+        source: Union[str, bytes, Path],
+        is_url: bool,
+        model_id: str,
+    ) -> str:
+        """
+        Submits the document for analysis and returns the operation result ID.
+        """
+        url = f"{self.endpoint}/documentintelligence/documentModels/{model_id}:analyze?api-version={self.api_version}&outputContentFormat=markdown"
+        headers = {
+            "Ocp-Apim-Subscription-Key": self.key,
+            "Content-Type": "application/json"
+        }
+
+        logging.info("Submitting document for analysis")
+
+        if is_url:
+            payload = {"urlSource": source}
+        else:
+            base64_str = await self._resolve_bytes_to_base64(source)
+            payload = {"base64Source": base64_str}
+
+        async with session.post(url, headers=headers, json=payload) as response:
+            response.raise_for_status()
+            operation_location = response.headers.get("Operation-Location")
+            
+            if not operation_location:
+                raise ValueError("Operation-Location header is missing in the response.")
+            
+            # Extract the resultId from the Operation-Location URL
+            return operation_location.split("/")[-1].split("?")[0]
+
+    async def _get_analysis_results(self, session: aiohttp.ClientSession, result_id: str, model_id: str) -> Dict:
+        """
+        Polls the analysis result endpoint until the operation is complete.
+        """
+        url = f"{self.endpoint}/documentintelligence/documentModels/{model_id}/analyzeResults/{result_id}?api-version={self.api_version}"
+        headers = {"Ocp-Apim-Subscription-Key": self.key}
+
+        while True:
+            logging.info("Waiting for analysis to complete.")
+            await asyncio.sleep(2)
+
+            async with session.get(url, headers=headers) as response:
+                response.raise_for_status()
+                data = await response.json()
+                status = data.get("status")
+
+                if status in ["succeeded", "failed"]:
+                    logging.info(f"Analysis completed with status: {status}")
+                    return data
+
+    async def _resolve_bytes_to_base64(self, source: Union[bytes, Path, str]) -> str:
+        """
+        Asynchronously reads a file path and returns its base64 encoded string.
+        If source is already bytes, it encodes directly.
+        """
+        if isinstance(source, bytes):
+            file_bytes = source
+        else:
+            async with aiofiles.open(source, 'rb') as f:
+                file_bytes = await f.read()
+        
+        return base64.b64encode(file_bytes).decode("utf-8")
+
+async def main():
+    """Main function to run a test analysis."""
+    client = DocumentIntelligenceService()
+    try:
+        results = await client.analyze(
+            source=Path(r"D:\test_pan.jpg"),  # local file on disk
+            is_url=False,
+            model_id="prebuilt-read",
+        )
+
+        print(f"Final status: {results.get('status')}")
+
+        if results.get("status") == "succeeded":
+            ar = results.get("analyzeResult", {})
+            # The content is now directly available in the analyzeResult
+            print("Extracted Content (Markdown):")
+            print(ar.get("content"))
+
+    except aiohttp.ClientResponseError as e:
+        print(f"Error during API call: {e.status} {e.message}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+if __name__ == "__main__":
+    # Setup basic logging
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())
