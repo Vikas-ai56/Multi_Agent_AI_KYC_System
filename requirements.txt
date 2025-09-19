@@ -1,14 +1,33 @@
+# Core AI/ML dependencies
 openai
 langgraph
 langsmith
+mem0ai
+
+# FastAPI and web framework dependencies
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Data validation and settings
 pydantic
 pydantic-settings
-uvicorn
-pandas
-python-dotenv
+
+# HTTP clients and async support
+httpx
+aiohttp
 requests
 aiofiles
-mem0ai
-redis
-aiohttp
+
+# Data processing
+pandas
 Pillow
+
+# Database and caching
+redis
+
+# Configuration and environment
+python-dotenv
+
+# Additional utilities
+typing-extensions
