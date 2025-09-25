@@ -162,5 +162,5 @@ class MemoryManager:
         if not memories:
             return "No relevant memories found."
         
-        formatted_list = [f"- {mem["memory"]}" for mem in memories]
+        formatted_list = [f'- {mem["memory"]}' for mem in memories]
         return "\n".join(formatted_list)

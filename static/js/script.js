@@ -4,12 +4,84 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('message-input');
     const sendButton = document.getElementById('send-button');
     const typingIndicator = document.getElementById('typing-indicator');
-    const faqSidebar = document.getElementById('faq-sidebar');
-    const faqToggle = document.getElementById('faq-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
     const faqList = document.getElementById('faq-list');
+    const loadingScreen = document.getElementById('loading-screen');
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
 
     let sessionId = null;
     const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+    // Initialize MarkdownIt
+    const md = window.markdownit({
+        html: true,
+        linkify: true,
+        typographer: true,
+        breaks: true
+    });
+
+    // Theme functionality
+    function initTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeIcon(savedTheme);
+    }
+
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeIcon(newTheme);
+    }
+
+    function updateThemeIcon(theme) {
+        themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    // Show loading screen initially
+    function showLoadingScreen() {
+        loadingScreen.style.display = 'flex';
+        loadingScreen.classList.remove('fade-out');
+    }
+
+    function hideLoadingScreen() {
+        loadingScreen.classList.add('fade-out');
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 500);
+    }
+
+    // Sidebar functionality
+    function toggleSidebar() {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('active');
+        } else {
+            sidebar.classList.toggle('collapsed');
+        }
+    }
+
+    function closeSidebar() {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+        }
+    }
+
+    // Auto-resize textarea
+    function autoResizeTextarea() {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+    }
 
     // --- Core Functions ---
 
@@ -18,6 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function startSession() {
         try {
+            // Simulate loading time
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
             showTypingIndicator();
             const response = await fetch(`${API_BASE_URL}/session/start`, {
                 method: 'POST',
@@ -31,10 +106,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
             sessionId = data.session_id;
-            addMessage('bot', data.response_to_user);
+            
+            // Hide loading screen before showing the greeting
+            hideLoadingScreen();
+            
+            // Add a slight delay before showing the greeting
+            setTimeout(() => {
+                addMessage('bot', data.response_to_user);
+            }, 300);
+            
         } catch (error) {
             console.error('Error starting session:', error);
-            addMessage('bot', 'Sorry, I am having trouble connecting. Please try again later.');
+            hideLoadingScreen();
+            setTimeout(() => {
+                addMessage('bot', 'Sorry, I am having trouble connecting. Please try again later.');
+            }, 300);
         } finally {
             hideTypingIndicator();
         }
@@ -89,7 +175,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const messageText = document.createElement('div');
         messageText.classList.add('text');
-        messageText.textContent = text;
+        
+        // Use markdown rendering for bot messages, plain text for user messages
+        if (sender === 'bot') {
+            messageText.innerHTML = formatText(text);
+        } else {
+            messageText.textContent = text;
+        }
 
         const timestamp = document.createElement('div');
         timestamp.classList.add('timestamp');
@@ -101,6 +193,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         chatWindow.appendChild(messageElement);
         scrollToBottom();
+    }
+
+    function formatText(text) {
+        // Use MarkdownIt to render markdown
+        return md.render(text);
     }
 
     /**
@@ -138,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
 
+    // Event Listeners
     chatForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const message = messageInput.value.trim();
@@ -145,15 +243,24 @@ document.addEventListener('DOMContentLoaded', () => {
             addMessage('user', message);
             sendMessage(message);
             messageInput.value = '';
+            autoResizeTextarea();
         }
     });
 
-    faqToggle.addEventListener('click', () => {
-        faqSidebar.classList.toggle('open');
-        if (window.innerWidth > 800) {
-            document.body.classList.toggle('sidebar-open');
+    messageInput.addEventListener('input', autoResizeTextarea);
+    
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            chatForm.dispatchEvent(new Event('submit'));
         }
     });
+
+    sidebarToggle.addEventListener('click', toggleSidebar);
+    
+    sidebarOverlay.addEventListener('click', closeSidebar);
+
+    themeToggle.addEventListener('click', toggleTheme);
 
     faqList.addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('faq-item')) {
@@ -164,14 +271,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Close sidebar if clicking outside of it
-    document.addEventListener('click', (e) => {
-        if (faqSidebar.classList.contains('open') && !faqSidebar.contains(e.target) && !faqToggle.contains(e.target)) {
-            closeSidebar();
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        const isMobile = window.innerWidth <= 768;
+        if (!isMobile) {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
         }
     });
 
 
     // --- Initialization ---
+    initTheme();
+    showLoadingScreen();
     startSession();
 });

@@ -8,6 +8,9 @@ from pydantic import BaseModel, Field
 class UserIntent(str, Enum):
     START_AADHAAR_VERIFICATION = "User wants to start the Aadhaar verification process."
     START_PAN_VERIFICATION = "User wants to start the PAN card verification process."
+    START_FORM60_VERIFICATION = "User wants to start the Form60 verification process."
+    START_PASSPORT_VERIFICATION = "User wants to start the Passport verification process."
+    START_DL_VERIFICATION = "User wants to start the DL verification process."
     
     CONTINUE_ACTIVE_WORKFLOW = "User is providing information for a currently active workflow."
     
@@ -24,7 +27,6 @@ class UserIntent(str, Enum):
     WORKFLOW_ALREADY_COMPLETE = "User is trying to start a specific workflow that has already been successfully completed."
 
     DECLARE_NO_PAN = "User is declaring they do not have a PAN card."
-    START_FORM60_VERIFICATION = "User wants to start the Form60 verification process."
     SUGGEST_PAN_WORKFLOW_INSTEAD = "System should suggest the PAN workflow based on user's context."
     PROCEED_WITH_FORM60 = "User insists on Form60 after being prompted about PAN."
 

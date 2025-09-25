@@ -17,6 +17,7 @@ from ..dependencies import validate_session_id, get_current_session
 from orchestrator.router import MainOrchestrator
 from state import OverallState
 from memory.memory import MemoryManager
+from greet import generate_greeting_message
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -24,12 +25,7 @@ logger = logging.getLogger(__name__)
 # Store active sessions (in production, use Redis or database)
 active_sessions: Dict[str, Dict[str, Any]] = {}
 
-GREETING_PROMPT = (
-    "Namaste I am RIA an insurance agent working for tata AIA\n"
-    "I am here to help you complete your KYC verification process\n"
-    "To kickstart this process I like to know which document is readily available with you now.\n"
-    "PAN or AADHAAR?"
-)
+GREETING_PROMPT = generate_greeting_message()
 
 def create_initial_state(session_id: str) -> OverallState:
     """Create initial state for a new session using the same structure as main_cli.py"""

@@ -19,11 +19,15 @@ class AadharDetailsState(TypedDict):
     name: str = Field(description="The name of the user")
     new_doc_needed: bool = Field(description="Whether a new document is needed for age proof")
     
-class VoterIdDetailsState(TypedDict):
+class PassportDetailsState(TypedDict):
     name: str = Field(description="The name of the user")
     dob: str = Field(description="DD/MM/YYYY")
-    voter_id: str = Field(description="The Voter ID of the user")
-    new_doc_needed: bool = Field(description="Whether a new document is needed for age proof")
+    address: str = Field(description="The address of the user")
+
+class DLDetailsState(TypedDict):
+    name: str = Field(description="The name of the user")
+    dob: str = Field(description="DD/MM/YYYY")
+    address: str = Field(description="The address of the user")
 
 class Form60DetailsState(TypedDict):
     agricultural_income: int = Field(description="Ask the user for his income with agricultural as source", default=0)
@@ -32,6 +36,7 @@ class Form60DetailsState(TypedDict):
 class Form60Data(TypedDict, total=False):
     agricultural_income: int
     other_income: int
+
 class OverallState(TypedDict):
     session_id: str
     active_workflow: Optional[str]
@@ -49,6 +54,7 @@ class OverallState(TypedDict):
     aadhar_details: AadharDetailsState
     pan_details: PANDetailsState
     Form_60: Form60Data
+    passport_details: PassportDetailsState
     # voterId_details: VoterIdDetailsState # For future use
 
     # --- Verification Status Payloads ---
@@ -88,6 +94,7 @@ class AadharGraphState(TypedDict):
     response_to_user: str
     last_executed_node: str
     status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]
+
 class Form60GraphState(TypedDict):
     """The state object for the Form60 workflow graph."""
     session_id: str
@@ -103,3 +110,51 @@ class Form60GraphState(TypedDict):
     response_to_user: str
     status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]
     decision: Optional[str]
+
+class PassportGraphState(TypedDict):
+    """The state object for the Passport workflow graph."""
+    session_id: str
+    user_message: str
+    retries: int
+    
+    # Internal State
+    passport_details: PassportDetailsState
+    
+    # Execution Tracking
+    last_executed_node: str
+    response_to_user: str
+    status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]
+    decision: Optional[str]
+
+class DLGraphState(TypedDict):
+    """The state object for the DL workflow graph."""
+    session_id: str
+    user_message: str
+    retries: int
+    
+    # Internal State
+    dl_details: DLDetailsState
+    
+    # Execution Tracking
+    last_executed_node: str
+    response_to_user: str
+    status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]
+    decision: Optional[str]
+
+class PanCheckGraphState(TypedDict):
+    """The state object for the PAN Check (probe) workflow graph."""
+    session_id: str
+    user_message: str
+    
+    # Internal State for PAN probe questions
+    pan_probe_questions: List[str]
+    current_question_index: int
+    pan_probe_answers: Dict[str, str]
+    
+    # Analysis result
+    analysis_result: Optional[str]  # "proceed_with_pan" or "proceed_with_form60"
+    
+    # Execution Tracking
+    last_executed_node: str
+    response_to_user: str
+    status: Literal["IN_PROGRESS", "SUCCESS", "FAILURE"]

@@ -81,11 +81,8 @@ A PAN card is mandatory for most financial activities, including:
 
 Individuals who are students, not formally employed, have no business, and only have basic savings accounts might not have a PAN card.
 
-**Question that was asked to the user:**
-"{question}"
-
-**The user's direct response:**
-"{user_message}"
+**USER INTERACTION**
+{qa_map}
 
 **Your Decision:**
 Based *only* on the user's response, is it likely they have a PAN card?

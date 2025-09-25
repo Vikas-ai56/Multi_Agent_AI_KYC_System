@@ -7,48 +7,95 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js"></script>
 </head>
 <body>
-    <aside class="faq-sidebar" id="faq-sidebar">
-        <h2>Frequently Asked Questions</h2>
-        <ul id="faq-list">
-            <li class="faq-item">What documents are required for KYC?</li>
-            <li class="faq-item">How long does the KYC process take?</li>
-            <li class="faq-item">Is my data secure?</li>
-            <li class="faq-item">Can I update my KYC details?</li>
-            <li class="faq-item">What is Form 60?</li>
-        </ul>
-    </aside>
-    <div class="chat-container">
-        <header class="chat-header">
-            <div class="logo">
-                <img src="https://www.tataaia.com/content/dam/tataaia/logo/tata-aia-logo.svg" alt="TATA AIA Logo">
-                <h1>KYC Assistant</h1>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loading-screen">
+        <div class="loading-logo-container">
+            <div class="tata-logo">
+                <img src="https://cdn.brandfetch.io/id3e2xgZLs/w/270/h/72/theme/dark/logo.png?c=1bxid64Mup7aczewSAYMX&t=1756012263928" alt="TATA AIA Logo" class="heartbeat-logo">
             </div>
-            <div class="header-controls">
-                <button id="faq-toggle" class="control-button" aria-label="Toggle FAQ">
-                    <i class="fas fa-question-circle"></i>
-                </button>
-                <div class="status">
-                    <span class="status-indicator"></span>
-                    <span>Online</span>
+            <div class="loading-logo">
+                <svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="35" stroke="white" stroke-width="2" fill="none" opacity="0.3"/>
+                    <path d="M50 15 C70.091 15 85 29.909 85 50" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="50" cy="50" r="20" fill="#f59e0b" opacity="0.9"/>
+                    <path d="M42 47 L48 53 L58 43" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+        <div class="loading-spinner"></div>
+        <div class="loading-text">TATA AIA KYC Assistant-RIA</div>
+        <div class="loading-subtext">Initializing secure connection...</div>
+    </div>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- Main App Container -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2 class="sidebar-title">Frequently Asked Questions</h2>
+            </div>
+            <div class="faq-section">
+                <div class="faq-category">
+                    <div class="faq-category-title">General Questions</div>
+                    <ul id="faq-list">
+                        <li class="faq-item">What documents are required for KYC?</li>
+                        <li class="faq-item">How long does the KYC process take?</li>
+                        <li class="faq-item">Is my data secure?</li>
+                        <li class="faq-item">Can I update my KYC details?</li>
+                        <li class="faq-item">What is Form 60?</li>
+                        <li class="faq-item">Why is KYC verification important?</li>
+                        <li class="faq-item">What happens if KYC verification fails?</li>
+                        <li class="faq-item">How to upload documents for KYC?</li>
+                    </ul>
                 </div>
             </div>
-        </header>
-        <main class="chat-window" id="chat-window">
-            <!-- Messages will be appended here by JavaScript -->
-        </main>
-        <footer class="chat-input-area">
-            <div id="typing-indicator" class="typing-indicator">
-                <span></span><span></span><span></span>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="chat-header">
+                <div class="header-left">
+                    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle Sidebar">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="https://cdn.brandfetch.io/id3e2xgZLs/w/270/h/72/theme/dark/logo.png?c=1bxid64Mup7aczewSAYMX&t=1756012263928" alt="TATA AIA Logo">
+                        <h1>RIA</h1>
+                    </div>
+                </div>
+                <div class="header-controls">
+                    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle Theme">
+                        <i class="fas fa-moon" id="theme-icon"></i>
+                    </button>
+                    <div class="status">
+                        <span class="status-indicator"></span>
+                        <span>Online</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="chat-window" id="chat-window">
+                <!-- Messages will be appended here by JavaScript -->
             </div>
-            <form id="chat-form" class="chat-form">
-                <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off" required>
-                <button type="submit" id="send-button" aria-label="Send Message">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </form>
-        </footer>
+
+            <footer class="chat-input-area">
+                <div id="typing-indicator" class="typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+                <form id="chat-form" class="chat-form">
+                    <textarea id="message-input" placeholder="Message KYC Assistant..." rows="1" required></textarea>
+                    <button type="submit" id="send-button" aria-label="Send Message">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </footer>
+        </main>
     </div>
     <script src="/static/js/script.js"></script>
 </body>

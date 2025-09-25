@@ -85,13 +85,10 @@ class MainOrchestrator:
         print("\n", "*"*35, "\n", decision.intent, "\n", "*"*35,)
 
         if current_kyc_step == "awaiting_pan_probe_response":
-            final_state, response_message = await self.pan_check_agent.handle_step(state, user_message)
-            final_state["ai_response"] = response_message
-            return final_state, response_message
+            final_state, response_message = await self._handle_pan_probe_response(state, user_message)
         
         if current_kyc_step == "awaiting_final_pan_decision":
             final_state, response_message = await self._start_workflow("pan" if "yes" in user_message.lower() else "form60", state, user_message)
-            return final_state, response_message
         
         all_required_workflows = {"aadhaar", "pan", "passport", "dl"} 
         completed_workflows = set(state.get("completed_workflows", []))
@@ -219,11 +216,11 @@ class MainOrchestrator:
             
             case UserIntent.DECLARE_NO_PAN:
                 if not state.get("pan_probe_complete"):
-                    # Start the PAN check probe workflow
-                    state["active_workflow"] = "pan_check"
-                    updated_state, answer = await self.pan_check_agent.handle_step(state, user_message)
-                    updated_state["ai_response"] = answer
-                    return updated_state, answer
+                    state["pan_probe_complete"] = True
+                    state["kyc_step"] = "awaiting_pan_probe_response"
+                    response_message = "I understand. To ensure we follow the correct procedure, could you please tell me if you have a bank account and what your current occupation is?"
+                    state["ai_response"] = response_message
+                    final_state = state
                 else:
                     return await self._start_workflow("form60", state, user_message)
 

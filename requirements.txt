@@ -31,3 +31,4 @@ python-dotenv
 
 # Additional utilities
 typing-extensions
+Jinja2

@@ -1,0 +1,89 @@
+# TATA AIA KYC System - Docker Compose Configuration
+
+version: '3.8'
+
+services:
+  # Main KYC API Service
+  kyc-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://kyc_user:kyc_password@postgres:5432/kyc_db
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+    networks:
+      - kyc-network
+
+  # Redis for session management and caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - kyc-network
+
+  # PostgreSQL database (optional, for persistent data)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: kyc_db
+      POSTGRES_USER: kyc_user
+      POSTGRES_PASSWORD: kyc_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - kyc-network
+
+  # Example webhook receiver service
+  webhook-receiver:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    ports:
+      - "8001:8001"
+    environment:
+      - WEBHOOK_PORT=8001
+    volumes:
+      - ./webhook_logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - kyc-network
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - kyc-api
+    restart: unless-stopped
+    networks:
+      - kyc-network
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  kyc-network:
+    driver: bridge

@@ -7,13 +7,7 @@ from typing_extensions import cast
 import traceback
 
 from memory.memory import MemoryManager
-
-GRRETING_PROMPT = (
-    "Namaste I am RIA an insurance agent working for tata AIA\n"
-    "I am here to help you complete your KYC verification process\n"
-    "To kickstart this process I like to know which document is readily available with you now.\n"
-    "PAN or AADHAAR?"
-)
+from greet import generate_greeting_message
 
 async def main():
     """
@@ -21,7 +15,9 @@ async def main():
     """
     print("--- TATA AIA Conversational Agent ---")
     print("Type 'exit' or 'quit' to end the conversation.")
-    print("\n", "RIA: ",GRRETING_PROMPT)
+
+    greeting_message = generate_greeting_message()
+    print("\n", "RIA: ",greeting_message)
     print("-" * 35)
 
     # 1. Create an initial state for the user's session.
@@ -37,7 +33,7 @@ async def main():
     state: OverallState = cast(OverallState, {
         "session_id": session_id,
         "input_message": "",
-        "ai_response": GRRETING_PROMPT,
+        "ai_response": greeting_message,
         "active_workflow": None,
         "kyc_step": None,
         "completed_workflows": [],
@@ -74,17 +70,11 @@ async def main():
             print("\n\nRIA: Conversation ended. Goodbye!")
             break
         except Exception as e:
-            # <<< CHANGE HERE >>>
-            # Import the traceback module at the top of the file
-            # import traceback 
             print("\n--- An unexpected error occurred ---")
-            traceback.print_exc() # This will print the full, detailed error
+            traceback.print_exc() 
             print("-" * 35)
-            # break # Optional: you might want to stop the script on an error
-
 
 if __name__ == "__main__":
-    # This is the entry point to run the async main function.
     try:
         asyncio.run(main())
     except Exception as e:
