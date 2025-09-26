@@ -534,7 +534,7 @@ class AadharAgent(BaseSpecialistAgent):
         checkpointer = InMemorySaver()
         self.graph = builder.compile(
             checkpointer=checkpointer,
-            interrupt_after=["prompt_for_aadhaar", "prompt_for_confirmation", "prompt_for_otp", 
+            interrupt_after=["choose_method", "prompt_for_aadhaar", "prompt_for_confirmation", "prompt_for_otp", 
                            "accept_aadhar_image", "display_aadhar_details"]
         )
 
