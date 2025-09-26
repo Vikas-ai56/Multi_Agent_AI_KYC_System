@@ -57,15 +57,15 @@ class MemoryManager:
         self._add_to_working_memory(user_message, ai_message)
 
         # 2. Update mem0's memory
-        self.mem0.add(
-            messages=[
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": ai_message}
-            ],
-            user_id = self.session_id,
-            agent_id=f"{active_workflow}-agent",
-            metadata={"category": active_workflow}
-        )
+        # self.mem0.add(
+        #     messages=[
+        #         {"role": "user", "content": user_message},
+        #         {"role": "assistant", "content": ai_message}
+        #     ],
+        #     user_id = self.session_id,
+        #     agent_id=f"{active_workflow}-agent",
+        #     metadata={"category": active_workflow}
+        # )
 
         self.update_L2_memory_threshold += 1
 
@@ -88,17 +88,21 @@ class MemoryManager:
         redis_summary = self.redis_client.get(self.episodic_memory_key) or "No summary yet."
 
         # 3. Get L2/L3 context from mem0
-        mem0_memories = self.mem0.search(
-            query=query,
-            user_id = self.session_id,
-        )
+        # mem0_memories = self.mem0.search(
+        #     query=query,
+        #     user_id = self.session_id,
+        # )
 
-        formatted_mem0 = self._format_mem0_results(mem0_memories)
+        # formatted_mem0 = self._format_mem0_results(mem0_memories)
 
         # 4. Combine all layers into a single string for the prompt
+        # return (
+        #     f"**Key Facts Summary (L2 - Redis):**\n{redis_summary}\n\n"
+        #     f"**Relevant Memories from mem0 (L2/L3):**\n{formatted_mem0}\n\n"
+        #     f"**Recent Conversation History (L1):**\n{working_memory}"
+        # )
         return (
             f"**Key Facts Summary (L2 - Redis):**\n{redis_summary}\n\n"
-            f"**Relevant Memories from mem0 (L2/L3):**\n{formatted_mem0}\n\n"
             f"**Recent Conversation History (L1):**\n{working_memory}"
         )
 
