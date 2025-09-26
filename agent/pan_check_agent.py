@@ -25,7 +25,7 @@ USER INTERACTION
 
 Provide a detailed analysis in the following format:
 
-ANALYSIS: [Write a comprehensive paragraph (4-5 sentences) analyzing the user's situation 
+ANALYSIS:THIS SHOULD BE IN MARKDOWN FORMAT [Write a comprehensive paragraph (4-5 sentences) analyzing the user's situation 
 based on Indian tax laws, PAN requirements, and their specific responses. Consider their bank account status, 
 ITR filing history, and occupation. Explain why they likely do or don't have a PAN card based on these factors.]
 
@@ -68,14 +68,23 @@ class PanCheckAgent(BaseSpecialistAgent):
         # Define edges
         builder.add_edge(START, "initialize_probe")
         builder.add_edge("initialize_probe", "ask_question")
-        builder.add_edge("collect_answer", "ask_question")
         
-        # Conditional edge to determine if more questions or analysis
+        # Conditional edge from ask_question to collect_answer (only if there are more questions)
         builder.add_conditional_edges(
             "ask_question",
             lambda s: "collect" if s.get("current_question_index", 0) < len(self.probe_questions) else "analyze",
             {
                 "collect": "collect_answer",
+                "analyze": "analyze_responses"
+            }
+        )
+        
+        # Conditional edge to determine if more questions or analysis
+        builder.add_conditional_edges(
+            "collect_answer",
+            lambda s: "ask" if s.get("current_question_index", 0) < len(self.probe_questions) else "analyze",
+            {
+                "ask": "ask_question",
                 "analyze": "analyze_responses"
             }
         )
@@ -235,14 +244,19 @@ class PanCheckAgent(BaseSpecialistAgent):
                 f"• Bank account: {bank_account_answer}\n"
                 f"• Filed ITR: {itr_answer}\n"
                 f"• Employment status: {occupation_answer}\n\n"
-                f"{response.analysis}"
+                f"{response.analysis}\n\n"
                 "According to regulations, individuals with bank accounts or those who have filed ITR typically need a PAN card. "
-                "Would you like to proceed with PAN card verification instead? If you're certain you don't have one, "
+                "\n\nWould you like to proceed with **PAN card verification** instead? If you're certain you don't have one, "
                 "we can help you with the application process, or proceed with Form 60."
             )
         else:
             analysis_result = "proceed_with_form60"
             response_message = (
+                "Based on your responses, it appears you may be eligible for a PAN card:\n"
+                f"• Bank account: {bank_account_answer}\n"
+                f"• Filed ITR: {itr_answer}\n"
+                f"• Employment status: {occupation_answer}\n\n"
+                f"{response.analysis}\n\n"
                 "Thank you for answering the questions. Based on your responses, we'll proceed with Form 60 "
                 "as it appears you may not require a PAN card for your current situation. type 'OK' to proceed with form60"
             )

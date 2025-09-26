@@ -16,6 +16,13 @@ You are a highly efficient summarization model. Your task is to create a concise
 {new_lines}
 
 **Updated Summary:**
+
+NOTE: You have to retain all the key details about the conversation like
+1. PAN completed + Pan details
+2. Aadhaar Completed + details
+3. Name of the user to address him directly with his name
+etc
+Basically the summary should be a collection of all the facts.
 """
 
 

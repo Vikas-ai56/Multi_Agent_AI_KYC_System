@@ -20,7 +20,7 @@ class MainOrchestrator:
     def __init__(
         self,
         memory_client: MemoryManager
-        ):
+    ):
 
         self.llm_client = LLMFactory()
         self.kyc_manager = KYCManagerAgent()
