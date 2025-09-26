@@ -16,12 +16,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_BASE_URL = 'http://localhost:8000/api/v1';
 
     // Initialize MarkdownIt
-    const md = window.markdownit({
-        html: true,
-        linkify: true,
-        typographer: true,
-        breaks: true
-    });
+    let md;
+    if (window.markdownit) {
+        md = window.markdownit({
+            html: true,
+            linkify: true,
+            typographer: true,
+            breaks: true
+        });
+        console.log('Markdown-it initialized successfully');
+    } else {
+        console.error('Markdown-it library not loaded!');
+        // Fallback function
+        md = {
+            render: function(text) {
+                return text.replace(/\n/g, '<br>');
+            }
+        };
+    }
 
     // Theme functionality
     function initTheme() {
@@ -176,9 +188,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageText = document.createElement('div');
         messageText.classList.add('text');
         
-        // Use markdown rendering for bot messages, plain text for user messages
+        // Use markdown-it to render markdown for bot messages
         if (sender === 'bot') {
-            messageText.innerHTML = formatText(text);
+            console.log('Raw text:', text);
+            const renderedHTML = md.render(text);
+            console.log('Rendered HTML:', renderedHTML);
+            messageText.innerHTML = renderedHTML;
         } else {
             messageText.textContent = text;
         }
